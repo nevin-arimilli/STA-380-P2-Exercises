@@ -1,0 +1,932 @@
+---
+title: 'Machine Learning Part 2: Exercises'
+authors: 'Ryan Lee, Nevin Arimilli, Aarib Mohammed, Shahrukh Agha '
+date: "2022-08-15"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+
+# Probability practice
+## Part A
+Visitors to your website are asked to answer a single survey question before they get access to the content on the page. Among all of the users, there are two categories: Random Clicker (RC), and Truthful Clicker (TC). There are two possible answers to the survey: yes and no. Random clickers would click either one with equal probability. You are also giving the information that the expected fraction of random clickers is 0.3. After a trial period, you get the following survey results: 65% said Yes and 35% said No. What fraction of people who are truthful clickers answered yes? Hint: use the rule of total probability.
+```{r 1.A, echo = FALSE}
+Prop_RC = 0.3
+Prop_TC = 1 - Prop_RC
+P_Y_RC = 0.5
+P_N_RC = 0.5
+P_Y = 0.65
+P_Y_TC = (P_Y - (P_Y_RC * Prop_RC))/Prop_TC
+print(c('The percentage of people who answered yes, given that they were truthful clickers was:', P_Y_TC))
+```
+
+## Part B
+Imagine a medical test for a disease with the following two attributes:
+
+The sensitivity is about 0.993. That is, if someone has the disease, there is a probability of 0.993 that they will test positive.
+The specificity is about 0.9999. This means that if someone doesn't have the disease, there is probability of 0.9999 that they will test negative.
+In the general population, incidence of the disease is reasonably rare: about 0.0025% of all people have it (or 0.000025 as a decimal probability).
+Suppose someone tests positive. What is the probability that they have the disease?
+
+```{r}
+P_POS_DIS = 0.993
+P_NEG_DIS = 1 - P_POS_DIS
+P_NEG_NON = 0.9999
+P_POS_NON = 1 - P_NEG_NON
+P_DIS = 0.000025
+P_NON = 1 - P_DIS
+P_POS = P_POS_DIS * P_DIS + P_POS_NON * P_NON
+P_DIS_POS = P_POS_DIS*P_DIS/P_POS
+print(c('The probability that someone has the disease, given that they tested positive is: ', P_DIS_POS))
+```
+
+# Wrangling the Billboard Top 100
+## Part A
+
+```{r}
+library(readr)
+library(tree)
+library(ISLR2)
+library(tidyverse)
+library(dplyr)
+library(scales)
+
+billboard <- read.csv("C:/Users/Nevin Arimilli/OneDrive/Desktop/IntroMachineLearning/billboard.csv", header = TRUE)
+attach(billboard)
+names(billboard)
+#View(billboard)
+billboard %>% select(song, performer, weeks_on_chart) %>%
+  group_by(song,performer) %>%
+  summarize(count = max(weeks_on_chart)) %>%
+  arrange(desc(count)) %>%
+  head(10)
+```
+The table above shows the top 10 songs and performers for those songs that were in the Billboard Top 100 Music Chart for the most number of weeks. The song Radioactive by Imagine Dragons was the top song in this table and was on the Billboard Top 100 for 87 weeks.
+
+
+## Part B
+```{r}
+billboard %>% filter(year != 1958 & year != 2021) %>%
+  group_by(year) %>%
+  summarize(count = n_distinct(song, performer)) %>%
+  ggplot(aes(x = year, y = count)) + geom_bar(stat = "identity") + theme_bw() +
+  xlab("Year") + ylab("Number of Unique Songs in Top 100") + labs(title = 'Musical Diversity of Billboard Top 100')
+```
+The bar plot above shows the number of unique songs in the Billboard Top 100 for a given year. The "musical diversity" reached a peak during the 1960's and steadily decreases from the 1970's to the early 2000's. However, there is an inflection point during the early 2000's and the music diversity begins to rapidly increase and reaches levels of music diversity similar to that of the mid-to-late 1960's. It is extremely interesting that the last time the Billboard Top 100 was this diverse was during the Cold War era which is attributed with mass political and social unrest, anti-war sentiment, and the popularity of hallucinogenic drugs. It is my opinion that people need to have ways to express themselves and the events during that period of time gave a wide range of topics to sing about. The recent rise in musical diversity can most likely be attributed to the introduction of the internet, social media, and smart devices since any individual in today's world could record a song and post it online, where it may blow up ie Soundcloud rappers.
+
+
+## Part C
+```{r}
+library(ggplot2)
+ten_week <- billboard %>% filter(weeks_on_chart >= 10)
+
+artist_hits <- ten_week %>%
+  group_by(performer) %>%
+  summarize(hits = n_distinct(song)) %>%
+  filter(hits >= 30)
+
+artist_hits %>%
+  ggplot(aes(performer, hits)) +
+  geom_bar(stat = "identity") +
+  xlab("Artist") +
+  ylab("Number of Ten-Week Hits") +
+  ggtitle("Number of Ten-Week Hits by Artist") +
+  theme(axis.text.x=element_text(angle=-90))
+```
+This bar plot shows the number of ten-week hits for each of the 19 artists in U.S. musical history who have had at least 30 songs that were on the Billboard Top 100 for at least ten-weeks.
+
+# Problem 3: Visual story telling part 1: green buildings
+## Part A
+### Rent vs Cluster_Rent
+We plotted average rent vs cluster rent for both green and non-green buildings. The clusters are a measure of average rent per square-foot per calendar year in the building's local market and these clusters can indicate the type of neighborhood that the building is in. It makes sense as to why cluster_rent is positively correlated with rent since a higher cluster_rent indicates that the building is in an area with nicer buildings and would be expected to be more expensive to rent. The green buildings. Another point we noticed from these plots was that the range for average rent in the non-green buildings plot was much greater and a few values for cluster_rent had large variation in average rent. This indicates that the cluster_rent for non-green buildings could be somewhat deceiving since a few buildings in these clusters is double or even sometimes triple the average rent if it were to be predicted using linear regression.
+```{r}
+library(readr)
+library(tree)
+library(ISLR2)
+library(tidyverse)
+library(dplyr)
+library(scales)
+
+build <- read.csv("C:/Users/Nevin Arimilli/OneDrive/Documents/GitHub/STA380/data/greenbuildings.csv", header = TRUE)
+build <- build %>% filter(leasing_rate >= 10)
+notgreen <- build %>% filter(green_rating == 0)
+green <- build %>% filter(green_rating == 1)
+meangreen <- mean(green$Rent)
+meannot <- mean(notgreen$Rent)
+
+green %>% group_by(cluster) %>%
+  ggplot(aes(x=cluster_rent, y=Rent)) +
+  geom_point(colour="green") +
+  ggtitle("Avg Rent vs Avg Cluster_Rent for Green Buildings") +
+  xlab("Cluster_rent") +
+  ylab("Rent") + geom_hline(yintercept=meangreen)
+
+notgreen %>% group_by(cluster) %>%
+  ggplot(aes(x=cluster_rent, y=Rent)) +
+  geom_point(colour="brown") +
+  ggtitle("Avg Rent vs Avg Cluster_Rent for Non-Green Buildings") +
+  xlab("Cluster_rent") +
+  ylab("Rent") + geom_hline(yintercept=meannot)
+ggplot(build) + 
+  geom_point(mapping=aes(x=cluster_rent, y=Rent, color=green_rating)) +
+  labs(x="Cluster Rent", y='Rent', title = 'Rent vs Cluster_Rent',
+       color='Green building')
+```
+### Rent vs Leasing Rate
+We plotted average rent vs leasing rate for both green and non-green buildings. In the plots, we noticed that the buildings with cheaper rent were widely distributed along the leasing rate axis for both green and non-green buildings. We also noticed that buildings that charged more for rent generally had a higher leasing rate, which makes sense since building with higher rent usually have more amenities than cheaper buildings and are thus more attractive to renters.
+```{r}
+green %>% ggplot(aes(x = leasing_rate, y = Rent)) +
+  geom_point(colour="green") +
+  ggtitle("Avg Rent vs Leasing Rate for Green Buildings") +
+  xlab("Leasing Rate") +
+  ylab("Rent") + geom_hline(yintercept=meangreen)
+
+notgreen %>% ggplot(aes(x = leasing_rate, y = Rent)) +
+  geom_point(colour="brown") +
+  ggtitle("Avg Rent vs Leasing Rate for Non-Green Buildings") +
+  xlab("Leasing Rate") +
+  ylab("Rent") + geom_hline(yintercept=meannot)
+
+ggplot(build) + 
+  geom_point(mapping=aes(x=leasing_rate, y=Rent, color=green_rating))+
+  labs(x="Leasing Rate", y='Rent', title = 'Rent vs Leasing Rate',
+       color='Green building')
+```
+### Average Rent vs Age
+After plotting rent vs age for green and non-green buildings, I noticed that the majority of green buildings were less than 30 years old. Buildings that were rated as a Class A property were also younger and charged more for rent than buildings that were rated with Class B or C.  The relationship between rent and age is not as clear as the cluster_rent or even leasing_rate.
+```{r}
+green %>% ggplot(aes(x = age, y = Rent)) +
+  geom_point(colour="green") +
+  ggtitle("Avg Rent vs Age for Green Buildings") +
+  xlab("Age") +
+  ylab("Rent") + geom_hline(yintercept=meangreen)
+
+notgreen %>% ggplot(aes(x = age, y = Rent)) +
+  geom_point(colour="brown") +
+  ggtitle("Avg Rent vs Age for Non-Green Buildings") +
+  xlab("Age") +
+  ylab("Rent") + geom_hline(yintercept=meannot)
+
+ggplot(build) + 
+  geom_point(mapping=aes(x=age, y=Rent, color=green_rating))+
+  labs(x="Age", y='Rent', title = 'Rent vs Age',
+       color='Green building')
+ggplot(build) + 
+  geom_point(mapping=aes(x=age, y=Rent, color=class_a))+
+  labs(x="Age", y='Rent', title = 'Class A: Rent vs Age',
+       color='Class A building')
+ggplot(build, aes(x=age)) + geom_density(aes(fill=factor(green_rating)), alpha=0.5)+
+  labs(x="Age", y='Density', title = 'Age Distribution',
+       fill='Green building')
+```
+From the plots, the relationship between average rent and size is also pretty unclear, however, it can be seen from the group of points that jut out of the main cluster of points at the bottom left that there is somewhat of a positive correlation between the size of the building and rent. We were expecting a more clear relationship between the two regardless of green rating, but this may be caused by large buildings having many small rental spaces.
+```{r}
+green %>% ggplot(aes(x = size, y = Rent)) +
+  geom_point(colour="green") +
+  ggtitle("Avg Rent vs Size for Green Buildings") +
+  xlab("Size") +
+  ylab("Rent") + geom_hline(yintercept=meangreen)
+
+notgreen %>% ggplot(aes(x = size, y = Rent)) +
+  geom_point(colour="brown") +
+  ggtitle("Avg Rent vs Size for Non-Green Buildings") +
+  xlab("Size") +
+  ylab("Rent") + geom_hline(yintercept=meannot)
+
+ggplot(build) + 
+  geom_point(mapping=aes(x=size, y=Rent, color=green_rating)) +
+  labs(x="Size", y='Rent', title = 'Rent vs Size',
+       color='Green building')
+```
+We plotted the number of green and non-green buildings and their status as a Class A building. The two bars on the left are for buildings that were given a Class B or C rating and the bars on the right are for buildings given a Class A rating. As you can see, there is a bigger proportion of green buildings rated as Class A than the other classes. This is evidence to support that green buildings will likely have higher rent since renters are more likely to pay a premium for buildings that have a Class A rating. To show that renters on average will pay more for Class A rated buildings, We created a box plot of the median rent for Class A buildings and non-Class A buildings and found that renters in Class A buildings pay $4.32 more per square foot per year. We created another box plot of the median rent for green and non-green buildings and found that renters in green buildings pay \$2.60 more per square foot per year.
+
+```{r}
+build$green_rating <- as.factor(build$green_rating)
+ggplot(build, aes(class_a, ..count..)) + geom_bar(aes(fill = green_rating), position = "dodge")+
+  labs(x="Class a", y='Number of buildings', title = 'Class A vs Green Buildings',
+       fill='Green building')
+med <- aggregate(Rent ~  class_a, build, median)
+ggplot(build, aes(x=factor(class_a), y=Rent, fill=class_a)) + geom_boxplot()+
+  stat_summary(fun=median, colour="darkred", geom="point", 
+               shape=18, size=3,show.legend = FALSE) + 
+  geom_text(data = med, aes(label = Rent, y = Rent+20)) +
+  labs(x="Class A", y='Rent', title = 'Rent vs Class a',
+       fill='Class A')
+med1 <- aggregate(Rent ~  green_rating, build, median)
+ggplot(build, aes(x=factor(green_rating), y=Rent, fill=green_rating)) + geom_boxplot()+
+  stat_summary(fun=median, colour="darkred", geom="point", 
+               shape=18, size=3,show.legend = FALSE) + 
+  geom_text(data = med1, aes(label = Rent, y = Rent+20)) +
+  labs(x="Class A", y='Rent', title = 'Rent vs Green Rating',
+       fill='Class A')
+```
+The median rent for green buildings is slightly more than non-green buildings at 250,000 sq. ft. However, the median rent for green buildings is significantly lower than non-green buildings at 250,000 sq. ft. when they are both not rated Class A. And even when we compare the Class A green and non-green buildings, the median rent is lower for the green buildings at 250,000 sq. ft. We made one more plot to see the median rent for different cluster rents and found that green buildings were consistently above the non-green buildings for varying cluster rent. Since the new building is on East Cesar Chavez street and is likely going to be surrounded by other buildings charging more for rent, it is important to see if a green building will charge more for rent if it is surrounded by non-green buildings that also have high rent since this will be the situation for the new building.
+
+```{r}
+# Size in 100k
+build$size_cat <- cut(build$size, breaks = c(0, seq(10, 3781045, by = 100000)), labels = 0:37,right=FALSE)
+medians <- aggregate(Rent ~ size_cat + green_rating, build, median)
+ggplot(data = medians, mapping = aes(y = Rent, x = size_cat ,group = green_rating, colour=green_rating)) +
+   geom_line(size=1.2) +
+  labs(x="Size in 100k sq.ft", y='Median Rent', title = 'All buildings: Median Rent for Different Building Sizes',
+       fill='Green building')
+
+data_non_class_a <- subset(build, build$class_a != 1)
+# Size in 100k
+data_non_class_a$size_cat <- cut(data_non_class_a$size, breaks = c(0, seq(10, 3781045, by = 100000)), labels = 0:37,right=FALSE)
+
+medians <- aggregate(Rent ~ size_cat + green_rating, data_non_class_a, median)
+ggplot(data = medians, mapping = aes(y = Rent, x = size_cat ,group = green_rating, colour=green_rating)) +
+   geom_line(size=1.2)+
+  labs(x="Size in 100k sq.ft", y='Median Rent', title = 'Non-Class A buildings: Median Rent for Different Building Sizes',
+       fill='Green building')
+
+data_class_a <- subset(build, build$class_a == 1)
+# Size in 100k
+data_class_a$size_cat <- cut(data_class_a$size, breaks = c(0, seq(10, 3781045, by = 100000)), labels = 0:37,right=FALSE)
+
+medians <- aggregate(Rent ~ size_cat + green_rating, data_class_a, median)
+ggplot(data = medians, mapping = aes(y = Rent, x = size_cat ,group = green_rating, colour=green_rating)) +
+   geom_line(size=1.2)+
+  labs(x="Size in 100k sq.ft", y='Median Rent', title = 'Class A buildings: Median Rent for Different Building Sizes',
+       fill='Green building')
+
+data_cluster <- subset(build, build$cluster_rent>0)
+# Size in 100k
+data_cluster$cluster_cat <- cut(data_cluster$cluster_rent, breaks = c(0, seq(10, 75, by = 5)),right=FALSE)
+
+medians <- aggregate(Rent ~ cluster_cat + green_rating, data_cluster, median)
+ggplot(data = medians, mapping = aes(y = Rent, x = cluster_cat ,group = green_rating, colour=green_rating)) +
+   geom_line(size=1.2)+
+  labs(x="Cluster_rent", y='Median Rent', title = 'Median Rent vs Cluster_Rent',
+       fill='Green building')
+```
+```{r}
+build$age_cat <- cut(build$age, breaks = c(0, seq(10, 190, by = 10)), labels = 0:18,right=FALSE)
+build_size <- subset(build, build$size > 200000 & build$size < 300000)
+build_size <- subset(build_size, build_size$class_a == 1)
+data_size_class <- subset(build, data_non_class_a$size > 200000 & data_non_class_a$size < 300000)
+
+paste("Median leasing rate for class a buildings of sizes ranging from 200k to 300k sq.ft ", 
+median(build_size$leasing_rate))
+medians <- aggregate(Rent ~ age_cat + green_rating, build_size, median)
+medians_1 <- subset(medians, medians$green_rating == 1)
+rent_1<-medians_1[1:5,]$Rent
+medians_0 <- subset(medians, medians$green_rating == 0)
+rent_0<-medians_0[1:5,]$Rent
+paste("Difference in rent for the first 5 years Class A Buildings: ", 
+(sum(rent_1,na.rm = T) - sum(rent_0, na.rm = T)) / 5)
+medians <- aggregate(Rent~ age_cat + green_rating, data_size_class, median)
+medians_1 <- subset(medians, medians$green_rating == 1)
+rent_1<-medians_1[1:5,]$Rent
+medians_0 <- subset(medians, medians$green_rating == 0)
+rent_0<-medians_0[1:5,]$Rent
+paste("Difference in rent for the first 5 years for Non-Class A Buildings: ", 
+(sum(rent_1,na.rm = T) - sum(rent_0, na.rm = T)) / 5 )
+```
+
+## Insights and Recommendations
+We believe that the analysis by the "Excel guru" has a few flaws. He does not account for all the factors that may go into rent. First, he only splits up the data into green and non-green buildings and reports the median rent between the two. He does not account for other factors such as rent of surrounding buildings, size, and class of the buildings in his analysis of this problem. An example of one of these flaws is when we plotted the median rent for all green and non-green buildings of varying size, we saw that buildings with a green rating had a higher median rent at 250,000 sq. ft. But when we split the data into Class A and non-Class A subsets and plotted the same data as before, we see that the median rent for green buildings is lower than the non-green buildings that have a size of 250,000 sq. ft.
+
+The rent difference is not the same across varying size and age, so we should only consider buildings between 200,000 sqft and 300,000 sqft since this will provide a more accurate difference in rent between green and non-green buildings of similar sizes. We will also use the medium leasing rate of the buildings in this size range instead of the 90% leasing rate used by the Excel guru.
+
+From our results, the median leasing rate for Class A buildings ranging from 200,000 to 300,000 sqft is 91.75%, the difference in rent per sq ft for the first 5 years of Class A buildings and Non-Class A buildings are 3.346 and 1.595, respectively. If the building that the real-estate developer is not a Class A building, then she should not make this investment since she will not recuperate the costs for over 13 years. If the building is a Class A building that has a size of 250,000 sq. ft. and a 91.75% occupancy rate, the real estate developer can expect to recuperate the costs in less than 7 years. Since the building will be earning rent for 30 years or more, investing in a green building is a good decision only if the building has a Class A rating.
+
+
+# Visual Story Telling Part 2: Capital Metro Data
+
+```{r}
+library(tidyverse)
+library(mosaic)
+```
+
+```{r}
+metro_data <- read.csv("C:/Users/Nevin Arimilli/OneDrive/Desktop/IntroMachineLearning/capmetro_UT.csv")
+metro_data %>%
+  summarize(mosaic::favstats(alighting))
+```
+
+There is an average of about 48 passangers getting off of the Austin metro in a 15 minute period. But the median passengers is much lower at 28, which means there is some left skewness in this dataset for alighting.
+
+```{r}
+metro_data %>%
+  summarize(mosaic::favstats(boarding))
+```
+
+Similar to the previous output, the mean is much higher than the median, meaning there is some left skewness to boarding as well.
+
+```{r pressure, echo=FALSE}
+ggplot(metro_data) +
+  geom_boxplot(aes(x=day_of_week, y=alighting))
+```
+
+The boxplots above show a signifigant decline in the amount of passengers getting off a bus on weekends compared to the weekdays. On average among weekdays, the most passengers got off on Monday's and Tuesday's.
+
+```{r}
+plot(metro_data$hour_of_day, metro_data$boarding, xlab = "Time of Day", ylab = "Boarded Passengers")
+```
+
+The most common time for passengers to board the metro was around 5 PM. Thinking about who takes the metro in Austin, it is a lot of middle and lower class workers who work full day jobs. Assuming most of these jobs are relatively normal hours, it makes sense that between 3-5 PM has the highest passenger boarding in the day.
+
+```{r}
+data_new <- metro_data
+data_new$month <- factor(data_new$month,
+                         levels = c("Sep", "Oct", "Nov"))
+p <- ggplot(data_new, aes(temperature, boarding)) +
+  geom_jitter(width = 1, height = 1) 
+p + facet_wrap(~month)
+```
+## Findings:
+This faceted plot shows how the number of boarding passengers can change as a result of the time of year, due to Austin's significant weather changes from month to month. The month of September, when it's still hot out, shows how the boarding was highest around 80-90 degrees. The few days it got close to 100 degrees, the boarding went down. This is most likely due to people not wanting to wait outside in the heat for buses, so they either get a ride from someone they know, uber, or rent an electric scooter. In October there doesn't seem to be a clear pattern, as the number of passengers is approximately equal between all temperatures. Lastly, the month of November shows that the few times the weather got below 40 degrees, very few people were getting onto the metro bus. This can be explained by people not wanting to wait in the cold for a bus.
+
+# Problem 5 - Porftolio Modeling (Value at Risk)
+
+## ETF Set 1 - Tech: "XSD", "SOXX", "SMH", "VGT", "RYT", "FTEC"
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(mosaic)
+library(quantmod)
+library(foreach)
+library(dplyr)
+library(tm) 
+library(tidyverse)
+library(slam)
+library(proxy)
+library(stopwords)
+```
+
+```{r}
+mystocks = c("XSD", "SOXX", "SMH", "VGT", "RYT", "FTEC")
+```
+```{r, include=FALSE}
+getSymbols(mystocks, from="2017-08-11")
+                       
+                       
+# Use adjusted closes
+XSDa = adjustOHLC(XSD, use.Adjusted=TRUE)
+SOXXa = adjustOHLC(SOXX, use.Adjusted=TRUE)
+SMHa = adjustOHLC(SMH, use.Adjusted=TRUE)
+VGTa = adjustOHLC(VGT, use.Adjusted=TRUE)
+RYTa = adjustOHLC(RYT, use.Adjusted=TRUE)
+FTECa = adjustOHLC(FTEC, use.Adjusted=TRUE)
+
+# returns matrix
+all_returns = cbind(ClCl(XSDa),ClCl(SOXXa),ClCl(SMHa),ClCl(VGTa),ClCl(RYTa),ClCl(FTECa))
+head(all_returns)
+# remove first row
+all_returns = as.matrix(na.omit(all_returns))
+N = nrow(all_returns)
+
+# Very strong correlations, as the bundle of ETFs is similar
+pairs(all_returns)
+plot(all_returns[,1], type='l')
+
+
+```
+
+```{r, include=FALSE}
+#### Bootsrap
+
+# Portfolio composition
+v = 100000
+w = c(0.2,0.15,0.15, 0.15, 0.15)
+portfolio = v*w
+
+
+# 5000 simulations
+set.seed(4)
+v0 = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+  v = v0
+  w = c(0.2,0.15,0.15, 0.15, 0.15)
+  portfolio = v*w
+  n_days = 20 #4 week loop
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(all_returns, 1, orig.ids=FALSE)
+    portfolio = portfolio*(1 + return.today)
+    v = sum(portfolio)
+    wealthtracker[today] = v
+  }
+  wealthtracker
+}
+```
+
+```{r, echo=FALSE}
+# simulation data
+# head(sim1)
+hist(sim1[,20], 25)
+```
+Fortunately, the distribution is to the right of the starting $100,000, so the opportunity to make money is asymmetrical.
+
+The average ending wealth is $101,944.90.
+
+```{r, echo=FALSE}
+# P & L
+mean(sim1[,n_days])
+hist(sim1[,20]- v0, breaks=30)
+```
+But with an expectation to make 1.94% over 4 weeks, the possible gains/losses range from -20% to +25%, give or take. That's a volatile range to aim for $1,944.90.
+```{r, include=FALSE}
+mean(sim1[,n_days] - v0)
+```
+```{r, include=FALSE}
+# 5% value at risk:
+quantile(sim1[,n_days]- v0, prob=0.05)
+```
+
+**The value-at-risk at the 95% level is $11,797.**  
+  
+  
+### ETF Set 2 - Diversified Growth: "QQQ", "IWY", "XMMO"
+```{r}
+# ETFs
+mystocks = c("QQQ", "IWY", "XMMO")
+```
+
+```{r, include=FALSE}
+getSymbols(mystocks, from="2017-08-11")
+# Use adjusted closes
+QQQa = adjustOHLC(QQQ, use.Adjusted=TRUE)
+IWYa = adjustOHLC(IWY, use.Adjusted=TRUE)
+XMMOa = adjustOHLC(XMMO, use.Adjusted=TRUE)
+
+# returns matrix
+all_returns = cbind(ClCl(QQQa),ClCl(IWYa),ClCl(XMMOa))
+head(all_returns)
+
+# remove first row
+all_returns = as.matrix(na.omit(all_returns))
+N = nrow(all_returns)
+```
+
+```{r, include=FALSE}
+#### Bootsrap
+
+# Portfolio composition
+v = 100000
+w = c(0.3, 0.3, 0.4)
+portfolio = v*w
+
+
+# 5000 simulations
+set.seed(1)
+v0 = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+  v = v0
+  w = w
+  portfolio = v*w
+  n_days = 20 #4 week loop
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(all_returns, 1, orig.ids=FALSE)
+    portfolio = portfolio*(1 + return.today)
+    v = sum(portfolio)
+    wealthtracker[today] = v
+  }
+  wealthtracker
+}
+```
+```{r, echo=FALSE}
+# simulation data
+# head(sim1)
+hist(sim1[,20], 25)
+```
+Again, an asymmetrical gain/loss opportunity with a mean to the right of the starting $100,000.
+
+The average ending wealth is $101,623.80.
+```{r, echo=FALSE}
+mean(sim1[,n_days])
+```
+
+```{r, echo=FALSE}
+# P & L
+hist(sim1[,20]- v0, breaks=30)
+```
+The possible gains/losses range from -15% to 20%, give or take vs. an expected gain of $1,623.80.
+```{r, include=FALSE}
+mean(sim1[,n_days] - v0)
+```
+
+```{r, include=FALSE}
+# 5% value at risk:
+quantile(sim1[,n_days]- v0, prob=0.05)
+```
+
+**The value-at-risk at the 95% level is $9,403.**
+
+
+### ETF Set 3 - Diversified 2: "IMCG", "FV", "XRLV"
+```{r}
+# ETFs
+mystocks = c("IMCG", "FV", "XRLV")
+```
+
+```{r, include=FALSE}
+getSymbols(mystocks, from="2017-08-11")
+# Use adjusted closes
+IMCGa = adjustOHLC(IMCG, use.Adjusted=TRUE)
+FVa = adjustOHLC(FV, use.Adjusted=TRUE)
+XRLVa = adjustOHLC(XRLV, use.Adjusted=TRUE)
+
+# returns matrix
+all_returns = cbind(ClCl(IMCGa),ClCl(FVa),ClCl(XRLVa))
+head(all_returns)
+
+# remove first row
+all_returns = as.matrix(na.omit(all_returns))
+N = nrow(all_returns)
+```
+
+```{r, include=FALSE}
+#### Bootsrap
+
+# Portfolio composition
+v = 100000
+w = c(0.3, 0.3, 0.4)
+portfolio = v*w
+
+
+# 5000 simulations
+set.seed(3)
+v0 = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+  v = v0
+  w = w
+  portfolio = v*w
+  n_days = 20 #4 week loop
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(all_returns, 1, orig.ids=FALSE)
+    portfolio = portfolio*(1 + return.today)
+    v = sum(portfolio)
+    wealthtracker[today] = v
+  }
+  wealthtracker
+}
+```
+```{r, echo=FALSE}
+# simulation data
+# head(sim1)
+hist(sim1[,20], 25)
+```
+Again, an asymmetrical gain/loss opportunity with a mean to the right of the starting $100,000.
+
+The average ending wealth is $101,171.70.
+```{r, echo=FALSE}
+mean(sim1[,n_days])
+```
+
+```{r, echo=FALSE}
+# P & L
+hist(sim1[,20]- v0, breaks=30)
+```
+The possible gains/losses range from -15% to 15%, give or take vs. an expected gain of $1,171.70, which isn't as good as set 2 with diversified growth.
+```{r, include=FALSE}
+mean(sim1[,n_days] - v0)
+```
+
+```{r, include=FALSE}
+# 5% value at risk:
+quantile(sim1[,n_days]- v0, prob=0.05)
+```
+
+**The value-at-risk at the 95% level is $8,524.**
+
+## Insights and Conclusion
+
+The first portfolio held stocks that focus on Tech Growth ETFs, so it has higher risk and higher reward. The second portfolio had stocks that are in Large and Mid Cap US Growth ETFs, so they're a bit more stable and also a bit lower reward. The third portfolio is diversified with US Mid Cap Growth, Hedge Fund, and Global ETFs, so it had an decently stable portofolio, but with lower upside.
+
+Portfolio 1 - Tech:
+- Expected return: $1,944.90.
+- Value at risk: $11,797.
+
+Portfolio 2 - Large and Mid Cap Growth:
+- Expected return: $1,623.80.
+- Value at risk: $9,403.
+
+Portfolio 2 - Large and Mid Cap Growth:
+- Expected return: $1,171.70.
+- Value at risk: $8,524
+
+As a proportion of value at risk, the expected gains are as follows:
+- Portfolio 1: 16.5%
+- Portfolio 2: 17.3%
+- Portfolio 3: 13.7%
+
+All portfolios have their pros and cons. But pending an investors risk and reward preferences, a higher expected return can be proportionally higher risk and vice versa. Portfolio 2 with Large and Mid Cap Growth ETFs demonstrates the best ratio of risk to reward out of these 3 portfolios.
+
+# Wine Analysis
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(factoextra)
+library(ggplot2)
+library(gridExtra)
+library(DataExplorer)
+library(dplyr)
+library(tidyverse)
+library(cluster)
+library(fpc)
+library(ppclust)
+```
+
+
+```{r PCA Wine analysis, echo = FALSE}
+wine <- read.csv("C:/Users/Nevin Arimilli/OneDrive/Desktop/IntroMachineLearning/wine.csv")
+wine$high_qual<-ifelse(wine$quality>5,"High Quality","Low Quality")
+winePCA = prcomp(wine[,1:12], scale. = TRUE, rank=3)
+fviz_eig(winePCA, addlabels = TRUE, ylim = c(0, 50))
+summary(winePCA)
+loadings = winePCA$rotation
+scores = winePCA$x
+loadings_summary = winePCA$rotation %>%
+  as.data.frame() %>%
+  rownames_to_column('SUMMARY')
+loadings_summary
+
+qual<-qplot(scores[,1], scores[,2], color=wine$high_qual, xlab='Component 1', ylab='Component 2')
+colo<-qplot(scores[,1], scores[,2], color=wine$color, xlab='Component 1', ylab='Component 2')
+grid.arrange(qual,colo, nrow = 2)
+
+
+```
+
+
+We can see using PCA that we can indeed get two groups for Red and White wine although the quality of wine one was more ambiguous.
+
+Now lets try to use K mean to cluster the groups.
+```{r Clustering, echo = FALSE}
+
+wine$high_qual_col<-ifelse(wine$quality>5,"yellow","blue")
+wine$type_col<-ifelse(wine$color=="white","green","orange")
+X = wine[,1:12]
+X = scale(X, center=TRUE, scale=TRUE)
+
+# Using k means with inital 25 runs
+kclust = kmeans(X, 2, nstart=25)
+kclust$center
+
+clusplot(X, kclust$cluster, main = 'Red and White Wine clusters ', color=TRUE,labels = 5, plotchar=TRUE, col.p=wine$type_col)
+clusplot(X, kclust$cluster, main = 'High and Low Quality Wine clusters', color=TRUE,labels = 5,plotchar=TRUE, col.p=wine$high_qual_col)
+
+```
+
+## Insights:  
+
+We believe that for both the quality and the color clustering gives us the better picture. We can see the the quality one is much better using clustering rather than PCA. The color one is similar for both the types but we would argue that the clustering one is still slightly better. 
+
+
+# Market Segmentation
+```{r Market Segmentation, echo = FALSE}
+market_data = read.csv("C:/Users/Nevin Arimilli/OneDrive/Documents/GitHub/STA380/data/social_marketing.csv", row.names=1)
+market_data <- cbind(market_data[,1:4],market_data[6:36]) #removed uncategorized from data
+# First normalize phrase counts to phrase frequencies.
+norma = market_data/rowSums(market_data)
+
+# PCA
+pca = prcomp(norma, scale=TRUE, rank=2)
+loadings = pca$rotation
+pca_scores = pca$x
+
+# A plot comparing PC1 to PC2
+qplot(pca_scores[,1], pca_scores[,2], xlab='Comp 1', ylab='Comp 2')
+```
+
+As we can see above are the two principal components plotted against each other
+
+## Here are the top 5 Categories for each Principal Component
+
+## PC1:
+
+Positive
+```{r, echo = FALSE}
+# Seeing the top positive and negative indicators for PC1
+pc1_ind = order(loadings[,1], decreasing=TRUE)
+colnames(norma)[head(pc1_ind,5)] #positive
+```
+Negative
+
+```{r, echo = FALSE}
+colnames(norma)[tail(pc1_ind,5)] #negative
+```
+
+## PC2:
+
+Positive
+```{r , echo = FALSE}
+pc2_ind = order(loadings[,2], decreasing=TRUE)
+colnames(norma)[head(pc2_ind,5)] #positive
+
+```
+Negative
+```{r, echo = FALSE}
+colnames(norma)[tail(pc2_ind,5)] #negative
+```
+
+## Findings:  
+
+
+According to these components, we see 4 interesting clusters for this drink that this company should target,
+
+**1. Social:** This segment corresponds to the followers that are positive on component 1. We see that they are attributed with things such as Photo sharing, chatter, and fashion. This segment likely includes people from their teens to mid 20s that use social media and are knowledgeable in current trends and fads.
+
+**2. Families/tradtional:** This segment corresponds to the followers that are negative on component 1. We see that they are attributed with things such as Religion, Parenting and School. This segment likely includes parents and more traditional styles familes. 
+
+**3. Active / Gym Junkies:** This segment corresponds to the followers that are positive on component 2. We see that they are attributed with things such as Health nutrition, Personal Fitness, and outdoors.  This segment likely includes people who are more active and health concious. 
+
+**4. Gen X/ Middle ages:** This segment corresponds to the followers that are negative on component 2.   We see that they are attributed with things such as Politics, Automotive, and Travel. This segment likely includes more middle aged people in their late 20s to early 40s.
+
+
+# The Reuters Corpus
+
+### Question
+
+Peter Humphrey is a reporter that has ties to China and even an alternative Chinese name.
+The question is to understand if articles containing the word 'chinese' will have more or less relevant tf-idf scores on average within Peter Humphrey's body of work compared to the entire Reuters corpus?
+He reports a lot on China, which will increase the term frequency in his articles, but because the inverse document frequency will be high, will that make the word 'chinese' less relevant to his body of work than to all articles?
+```{r, include=FALSE}
+###grader will need to change this
+setwd("C:/Users/Nevin Arimilli/OneDrive/Documents/GitHub/STA380/data/ReutersC50")
+
+######### All Files
+
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+# Read all files in corpus
+file_list = Sys.glob('c50train/*/*.txt')
+all = lapply(file_list, readerPlain)
+
+# Rename files
+mynames = file_list %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., tail, n=2) } %>%
+  { lapply(., paste0, collapse = '') } %>%
+  unlist
+
+# Rename the articles
+mynames
+names(all) = mynames
+
+## Create corpus 
+documents_raw = Corpus(VectorSource(all))
+
+## Process / Tokenize
+my_documents = documents_raw
+my_documents = tm_map(my_documents, content_transformer(tolower)) # make everything lowercase
+my_documents = tm_map(my_documents, content_transformer(removeNumbers)) # remove numbers
+my_documents = tm_map(my_documents, content_transformer(removePunctuation)) # remove punctuation
+my_documents = tm_map(my_documents, content_transformer(stripWhitespace)) ## remove excess white-space
+
+## Remove stopwords
+stopwords(source='snowball')
+my_documents = tm_map(my_documents, content_transformer(removeWords), stopwords(source='snowball'))
+
+
+## Doc-term matrix
+DTM_all = DocumentTermMatrix(my_documents)
+
+# TF-IDF scores
+tfidf_all = weightTfIdf(DTM_all)
+
+
+############ Peter Humphrey Files
+
+readerPlain2 = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+# Read all files in Peter Humphrey's corpus
+file_list2 = Sys.glob('c50train/PeterHumphrey/*.txt')
+ph = lapply(file_list2, readerPlain2)
+
+# Rename files
+mynames2 = file_list2 %>%
+  { strsplit(., '/', fixed=TRUE) } %>%
+  { lapply(., tail, n=2) } %>%
+  { lapply(., paste0, collapse = '') } %>%
+  unlist
+
+# Rename the articles
+mynames2
+names(ph) = mynames2
+
+## Create corpus 
+documents_raw2 = Corpus(VectorSource(ph))
+
+## Process / Tokenize
+my_documents2 = documents_raw2
+my_documents2 = tm_map(my_documents2, content_transformer(tolower)) # make everything lowercase
+my_documents2 = tm_map(my_documents2, content_transformer(removeNumbers)) # remove numbers
+my_documents2 = tm_map(my_documents2, content_transformer(removePunctuation)) # remove punctuation
+my_documents2 = tm_map(my_documents2, content_transformer(stripWhitespace)) ## remove excess white-space
+
+## Remove stopwords
+stopwords(source='snowball')
+my_documents2 = tm_map(my_documents2, content_transformer(removeWords), stopwords(source='snowball'))
+
+
+## Doc-term-matrix
+DTM_ph = DocumentTermMatrix(my_documents2)
+
+# TF-IDF scores
+tfidf_ph = weightTfIdf(DTM_ph)
+
+# Basic stats
+inspect(tfidf_all[,'chinese'])
+sum(tfidf_all[,'chinese'])
+
+inspect(tfidf_ph[,'chinese'])
+sum(tfidf_ph[,'chinese'])
+```
+
+```{r}
+###### Average tfidf of the word 'chinese' across entire 2500 work corpus
+#and across Peter Humphrey's 50 work corpus
+chinese_ph = mean(tfidf_ph[,'chinese'])
+chinese_all = mean(tfidf_all[,'chinese'])
+
+chinese_ph
+chinese_all
+```
+
+Indeed, when looking at the word 'chinese' in both bodies of work, it will certainly appear in more articles in a body of 2500 vs a body of 50. And even the total of the tf-idfs is higher in the entire corpus. However, when dividing the sum of tf-idfs of 'chinese' in the entire corpus across 2500 to see the **average** tf-idf of the word, it would normalize to a small enough number to compare with the average tf-idf scores of the word 'chinese' in Peter Humphrey's body of work.
+
+But the end result is that the average tf-idf of 'chinese' is three times the magnitude in the entire Reuters corpus as it is in Peter Humphreys's work. Granted the number of documents is going to have opposite effects on inverse document frequency and 'normalizing' by dividing a mean, it's not a perfectly proportional function. So in this case, the scores demonstrate that writing about a term frequently - even if everyone doesn't write about it all the time - can still reduce it's relevance to an author.
+
+Mean TF-IDF of "chinese" in entire corpus equals 0.0043
+Mean TF-IDF of "chinese" in Peter Humphrey corpus equals 0.00155
+
+## Insights and Conclusion
+
+Indeed, when looking at the word 'chinese' in both bodies of work, it will certainly appear in more articles in a body of 2500 vs a body of 50. And even the total of the tf-idfs is higher in the entire corpus. However, when dividing the sum of tf-idfs of 'chinese' in the entire corpus across 2500 to see the **average** tf-idf of the word, it would normalize to a small enough number to compare with the average tf-idf scores of the word 'chinese' in Peter Humphrey's body of work.
+
+But the end result is that the average tf-idf of 'chinese' is three times the magnitude in the entire Reuters corpus as it is in Peter Humphreys's work. Granted the number of documents is going to have opposite effects on inverse document frequency and 'normalizing' by dividing a mean, it's not a perfectly proportional function. So in this case, the scores demonstrate that writing about a term frequently - even if everyone doesn't write about it all the time - can still reduce it's relevance to an author.
+
+# Association Rule Mining
+
+```{r}
+library(igraph)
+library(arules) 
+library(arulesViz)
+```
+
+```{r}
+transactions <- arules::read.transactions(
+  file="C:/Users/Nevin Arimilli/OneDrive/Desktop/IntroMachineLearning/groceries.txt",
+  format = c("basket"),
+  sep = ",",
+  cols =NULL,
+  rm.duplicates = 1,
+  skip = 0
+)
+str(transactions)
+groceryrules = apriori(transactions, 
+                       parameter=list(support=.001, confidence=.2, maxlen=50))
+
+```
+
+```{r}
+#inspect(groceryrules)
+```
+
+We chose a support level of .001 because it gave significantly higher lift scores than even a support level of .005. The lift scores at .005 only ranged from 1-4. We also chose a confidence threshold of .2 because there are so many different possible rules for this big of a data set, so we wanted to filter out some of the rules with a very low confidence, or conditional probability. But we also didn't want to make the confidence so high that we begin to have very few rules. A confidence level of .2 was a good balance for this data. We also decided that the max length to be 50. This is because there are some baskets in the data that are very large, and we wanted to make sure they were accounted for when creating rules.
+
+*Note: We decided not to output this as there would be over 21,000 lines for all the rules!*
+
+```{r}
+plot(groceryrules, measure = c("support", "lift"), shading = "confidence")
+
+```
+
+
+```{r}
+plot(groceryrules, method='two-key plot')
+```
+
+The graphs shows how high confidence will have low support, and vice versa. This is because although high support means it is common in the data set as a whole, when you condition these combinations, there is little confidence due to the items being very common throughout the data set. The order size means how many items are in the specific rule. We can see that the higher the order size, the lower the support because having a 6 item rule isn't nearly as common as a 1 item rule. But these high order size's can tend to have high confidence because there aren't that many of these large combinations, which essentially shrinks the denominator when calculating confidence (conditional probability), therefore increasing the confidence of that rule.
+
+```{r}
+grocery_graph = associations2igraph(subset(groceryrules, lift>5), associationsAsNodes = FALSE)
+igraph::write_graph(grocery_graph, file='grocery.graphml', format = "graphml")
+```
+
+This creates an html graph that can be uploaded to Gephi.
+
+```{r}
+knitr::include_graphics("C:/Users/Nevin Arimilli/OneDrive/Pictures/Grocery.png")
+
+```
+
+```{r}
+knitr::include_graphics("C:/Users/Nevin Arimilli/OneDrive/Pictures/Grocery2.png")
+
+```
+
+## Insights and Conclusion:
+Using the Fruchterman Reingold layout and increasing the size of nodes with high degrees, we found a large cluster that had the following items: whole milk, tropical fruit, fruit/vegetable juice, root vegetables, citrus fruit, butter, yogurt, other vegetables, whipped/sour cream. High degree nodes just means how many connections go through the node. Analyzing these items, it makes sense these items are in the cluster because, whether vegetarian or not, these items are common for everyday meals, especially the fruits and vegetables. In addition, if a customer is buying vegetables, it would seem very probable they will also buy fruit. On the other hand, it doesn't seem very likely that a basket would only have fruit or only have vegetables. There are also a lot of dairy products in this cluster, which we thought wouldn't be the case due to the recent increase in vegans. But this graphic shows that dairy products are still a very common item in grocery stores.
